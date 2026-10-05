@@ -1,184 +1,131 @@
 import "./styles.css";
-import { createStorageQuoteApi } from "./api";
+import { createStorageQuoteApi, type StorageQuoteDocument, type StorageQuoteLine } from "./api";
 import { readRuntimeConfig, type StorageQuoteRuntimeConfigSource } from "./config";
-import { calculateStorageQuote, formatIls, type StorageQuoteInput } from "./model";
-import { currentSubmissionId, resetSubmissionId } from "./submission";
+import { formatIls } from "./model";
 
 const app = document.querySelector<HTMLElement>("#app");
 if (!app) throw new Error("Missing app element");
 
 app.innerHTML = `
-  <div class="workspace">
-    <form class="quote-form" novalidate>
-      <header>
-        <p class="eyebrow">אחסון בטוח</p>
-        <h1>הצעת מחיר לאחסנה</h1>
-        <p>טופס פנימי להכנת הצעה ללא חתימה.</p>
-      </header>
-
-      <section class="card">
-        <h2>פרטי ההצעה</h2>
-        <div class="grid">
-          <label>שם הלקוח<input name="customerName" autocomplete="name" required /></label>
-          <label>טלפון<input name="customerPhone" type="tel" autocomplete="tel" /></label>
-          <label>דוא״ל<input name="customerEmail" type="email" autocomplete="email" /></label>
-          <label>תאריך<input name="quoteDate" type="date" required /></label>
-          <label>נפח המחסן בקוב<input name="volumeCubicMeters" type="number" min="0.01" step="0.01" inputmode="decimal" required /></label>
-          <label>מחיר לקוב לחודש<input name="pricePerCubicMeter" type="number" min="0.01" step="0.01" inputmode="decimal" required /></label>
-        </div>
-        <p class="rule-note">ב־8 קוב ומעלה המחיר לקוב יוצג בהצעה. מתחת ל־8 קוב המחיר מוזן במערכת אך השורה אינה מוצגת במסמך.</p>
-      </section>
-
-      <section class="card">
-        <h2>שירותים אופציונליים</h2>
-        <p>שדה ריק או 0 לא יופיע בהצעה.</p>
-        <div class="grid">
-          <label>מחיר הובלה<input name="movingPrice" type="number" min="0" step="0.01" inputmode="decimal" /></label>
-          <label>מחיר סבלות<input name="porteragePrice" type="number" min="0" step="0.01" inputmode="decimal" /></label>
-        </div>
-      </section>
-
-      <section class="summary-card">
-        <span>מחיר אחסנה חודשי</span>
-        <output id="monthly-total">₪0</output>
-      </section>
-
-      <section class="submit-card">
-        <button id="save-quote" type="submit" disabled>שמירת ההצעה בפיירברי</button>
-        <p id="save-status" aria-live="polite">הטופס המקומי מוכן לתצוגה ולהדפסה. החיבור לפיירברי אינו פעיל עדיין.</p>
-      </section>
-    </form>
-
-    <aside class="proposal" aria-live="polite">
-      <div class="proposal-actions"><button id="print-quote" type="button">הדפסת ההצעה</button></div>
-      <article id="proposal-preview"></article>
-    </aside>
+  <div class="page-shell">
+    <nav class="toolbar" aria-label="פעולות להצעת המחיר">
+      <div>
+        <strong>הצעת מחיר לאחסנה</strong>
+        <span id="load-status">טוען נתונים מ־Fireberry…</span>
+      </div>
+      <div class="toolbar-actions">
+        <button id="print-quote" type="button" disabled>הדפסה / שמירה כ־PDF</button>
+        <a id="email-quote" class="action-link disabled" aria-disabled="true">פתיחת מייל</a>
+        <a id="whatsapp-quote" class="action-link disabled" aria-disabled="true" target="_blank" rel="noopener">פתיחת WhatsApp</a>
+      </div>
+    </nav>
+    <article id="proposal" class="proposal" aria-live="polite">
+      <p class="loading">ההצעה נטענת…</p>
+    </article>
   </div>
 `;
 
-const form = app.querySelector<HTMLFormElement>(".quote-form");
-const preview = app.querySelector<HTMLElement>("#proposal-preview");
-const total = app.querySelector<HTMLOutputElement>("#monthly-total");
+const proposal = app.querySelector<HTMLElement>("#proposal");
+const status = app.querySelector<HTMLElement>("#load-status");
 const printButton = app.querySelector<HTMLButtonElement>("#print-quote");
-const saveButton = app.querySelector<HTMLButtonElement>("#save-quote");
-const saveStatus = app.querySelector<HTMLElement>("#save-status");
-if (!form || !preview || !total || !printButton || !saveButton || !saveStatus) throw new Error("Storage quote form failed to initialize");
+const emailLink = app.querySelector<HTMLAnchorElement>("#email-quote");
+const whatsappLink = app.querySelector<HTMLAnchorElement>("#whatsapp-quote");
+if (!proposal || !status || !printButton || !emailLink || !whatsappLink) throw new Error("Storage quote viewer failed to initialize");
 
-const dateInput = form.elements.namedItem("quoteDate") as HTMLInputElement;
-dateInput.value = new Date().toISOString().slice(0, 10);
-
-form.addEventListener("input", render);
 printButton.addEventListener("click", () => window.print());
-render();
-void initializeIntegration();
+void initialize();
 
 type StorageQuoteWindow = Window & { __STORAGE_QUOTE_CONFIG__?: StorageQuoteRuntimeConfigSource };
 
-async function initializeIntegration(): Promise<void> {
-  const configSource = (window as StorageQuoteWindow).__STORAGE_QUOTE_CONFIG__;
-  if (!configSource) return;
-
+async function initialize(): Promise<void> {
   try {
+    const configSource = (window as StorageQuoteWindow).__STORAGE_QUOTE_CONFIG__;
+    if (!configSource) throw new Error("החיבור להצעה עדיין אינו פעיל");
     const config = readRuntimeConfig(configSource);
     const token = new URLSearchParams(location.search).get(config.tokenQueryKey) ?? "";
-    const api = createStorageQuoteApi({ endpointUrl: config.endpointUrl });
-    saveStatus!.textContent = "טוען את פרטי הלקוח…";
-    const prefill = await api.loadPrefill(token);
-    setField("customerName", prefill.customer.displayName);
-    setField("customerPhone", prefill.customer.phone ?? "");
-    setField("customerEmail", prefill.customer.email ?? "");
-    render();
-    saveButton!.disabled = false;
-    saveStatus!.textContent = prefill.owner.displayName
-      ? `הטופס מוכן. נציג/ה: ${prefill.owner.displayName}`
-      : "הטופס מוכן לשמירה.";
-
-    form!.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (!form!.reportValidity()) return;
-      const submissionId = currentSubmissionId(token);
-      saveButton!.disabled = true;
-      saveStatus!.classList.remove("error-message", "success-message");
-      saveStatus!.textContent = "שומר את ההצעה ואת פריטי ההצעה…";
-      try {
-        const result = await api.submitQuote({ token, clientSubmissionId: submissionId, form: readInput(form!) }, submissionId);
-        resetSubmissionId(token);
-        saveStatus!.classList.add("success-message");
-        saveStatus!.textContent = `ההצעה נשמרה בהצלחה עם ${result.lineCount} פריטים. אפשר להדפיס או לשמור כ־PDF.`;
-        saveButton!.textContent = "נשמר בהצלחה ✓";
-      } catch (error) {
-        saveStatus!.classList.add("error-message");
-        saveStatus!.textContent = error instanceof Error ? error.message : "שמירת ההצעה נכשלה. אפשר לנסות שוב.";
-        saveButton!.disabled = false;
-      }
-    });
+    const data = await createStorageQuoteApi({ endpointUrl: config.endpointUrl }).loadDocument(token);
+    proposal!.innerHTML = renderProposal(data);
+    status!.textContent = "הצעה מעודכנת מ־Fireberry";
+    printButton!.disabled = false;
+    configureShareLinks(data);
   } catch (error) {
-    saveStatus!.classList.add("error-message");
-    saveStatus!.textContent = error instanceof Error ? error.message : "לא ניתן לטעון את פרטי הלקוח.";
+    proposal!.innerHTML = `<section class="error-state"><h1>לא ניתן לפתוח את ההצעה</h1><p>${escapeHtml(error instanceof Error ? error.message : "אירעה שגיאה")}</p></section>`;
+    status!.textContent = "טעינת ההצעה נכשלה";
+    status!.classList.add("error-text");
   }
 }
 
-function setField(name: string, value: string): void {
-  const field = form!.elements.namedItem(name);
-  if (field instanceof HTMLInputElement) field.value = value;
+function configureShareLinks(data: StorageQuoteDocument): void {
+  const documentUrl = location.href;
+  const subject = `הצעת מחיר לאחסנה - ${data.customer.displayName}`;
+  const message = `שלום ${data.customer.displayName},\nמצורפת הצעת המחיר לאחסנה מאחסון בטוח:\n${documentUrl}`;
+  emailLink!.href = `mailto:${encodeURIComponent(data.customer.email ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+  emailLink!.classList.remove("disabled");
+  emailLink!.removeAttribute("aria-disabled");
+  const phone = normalizePhone(data.customer.phone);
+  whatsappLink!.href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  whatsappLink!.classList.remove("disabled");
+  whatsappLink!.removeAttribute("aria-disabled");
 }
 
-function render(): void {
-  const input = readInput(form!);
-  const calculation = calculateStorageQuote(input);
-  total!.value = formatIls(calculation.monthlyStoragePrice);
-  preview!.innerHTML = renderProposal(input, calculation);
-}
-
-function readInput(target: HTMLFormElement): StorageQuoteInput {
-  const data = new FormData(target);
-  return {
-    customerName: String(data.get("customerName") ?? "").trim(),
-    customerPhone: String(data.get("customerPhone") ?? "").trim(),
-    customerEmail: String(data.get("customerEmail") ?? "").trim(),
-    quoteDate: String(data.get("quoteDate") ?? ""),
-    volumeCubicMeters: asNumber(data.get("volumeCubicMeters")),
-    pricePerCubicMeter: asNumber(data.get("pricePerCubicMeter")),
-    movingPrice: asNumber(data.get("movingPrice")),
-    porteragePrice: asNumber(data.get("porteragePrice")),
-  };
-}
-
-function renderProposal(input: StorageQuoteInput, calculation: ReturnType<typeof calculateStorageQuote>): string {
-  const customer = escapeHtml(input.customerName) || "____________";
-  const date = input.quoteDate ? new Intl.DateTimeFormat("he-IL").format(new Date(`${input.quoteDate}T12:00:00`)) : "____________";
-  const volume = input.volumeCubicMeters > 0 ? input.volumeCubicMeters : "____";
-  const priceLine = calculation.showPricePerCubeLine
-    ? `<p>נשמח לספק עבורכם את שירותי האחסנה במחיר של <strong>${formatIls(input.pricePerCubicMeter)}</strong> לקוב לחודש.</p>`
+function renderProposal(data: StorageQuoteDocument): string {
+  const storageLine = data.lines.find((line) => /אחסנ/.test(line.description)) ?? data.lines[0];
+  const optionalLines = data.lines.filter((line) => line !== storageLine && line.amount > 0);
+  const date = formatDate(data.quote.createdOn);
+  const quoteLabel = data.quote.quoteNumber ? `מספר הצעה ${escapeHtml(data.quote.quoteNumber)}` : escapeHtml(data.quote.displayName);
+  const pricePerCube = storageLine.quantity >= 8
+    ? `<p>נשמח לספק עבורכם את שירותינו לאחסנה במחיר של <strong>${formatIls(storageLine.unitPrice)}</strong> לקו״ב לחודש.</p>`
     : "";
-  const services = calculation.optionalServices.length
-    ? `<p>כמו כן, ניתן להיעזר בשירותינו:</p><ul>${calculation.optionalServices.map((service) => `<li>${service.label}: <strong>${formatIls(service.amount)}</strong></li>`).join("")}</ul>`
+  const optional = optionalLines.length
+    ? `<section class="optional-services"><p>כמו כן, ניתן להיעזר בשירותינו להובלת הציוד לאחסון או לעבודות סבלות:</p><ul>${optionalLines.map(renderOptionalLine).join("")}</ul></section>`
     : "";
 
   return `
-    <div class="proposal-meta"><span>לכבוד: <strong>${customer}</strong></span><span>תאריך: <strong>${date}</strong></span></div>
-    <h2>הנדון: הצעת מחיר לאחסנה</h2>
-    <p>אנחנו באחסון בטוח עוסקים למעלה מ־40 שנה בהשכרת מחסנים פרטיים בכל גודל ולכל תקופה על פי דרישת הלקוח, בתוך מבנה בטון מלא עם גג בטון, במתחם מאוורר, נקי, מבוטח ומאובטח — עם שמירה, מצלמות ומערכת אזעקה מתקדמת.</p>
-    <p>מפתח התא האישי נמצא בידי הלקוח וקיימת אפשרות לגישה למתחם 24/7, בכל שעה ובכל יום, באמצעות בקרות כניסה ויציאה חכמות.</p>
-    <p>ברשותנו מחסנים בכל הגדלים, החל מ־1 קוב ועד מחסנים של 100 קוב.</p>
-    <p>על פי דרישתכם, להערכתנו תזדקקו למחסן בגודל של <strong>${volume} קוב</strong>.</p>
-    ${priceLine}
-    <p>המחיר החודשי למחסן בגודל זה הוא <strong>${formatIls(calculation.monthlyStoragePrice)}</strong>. המחיר המדויק ייקבע בהתאם לגודל המחסן שנלקח בפועל במועד האחסנה.</p>
+    <header class="document-meta">
+      <span><strong>לכבוד:</strong> ${escapeHtml(data.customer.displayName)}</span>
+      <span><strong>תאריך:</strong> ${date}</span>
+    </header>
+    <p class="quote-reference">${quoteLabel}</p>
+    <h1>הנדון: הצעת מחיר לאחסנה</h1>
+    <p>אנחנו באחסון בטוח עוסקים למעלה מ־40 שנה בהשכרת מחסנים פרטיים בכל גודל ולכל תקופה על פי דרישת הלקוח בתוך מבנה בטון מלא, עם גג בטון, במתחם מאוורר, נקי, מבוטח ומאובטח - עם שמירה, מצלמות ומערכת אזעקה מתקדמת וייחודית.</p>
+    <p>מפתח התא האישי נמצא בידי הלקוח שלו ואפשרות לגישה 24/7 למתחם כל שעה וכל יום באמצעות בקרות כניסה ויציאה חכמות.</p>
+    <p>מחיר השכירות החודשי נקבע על פי גודל המחסן ביחידות קוב.</p>
+    <p>ברשותנו מחסנים בכל הגדלים, החל מ־1 קוב ואילך, עד למחסנים ענקיים של 100 קוב.</p>
+    <p>על פי דרישתכם להערכתנו תזדקקו למחסן בגודל של <strong>${formatNumber(storageLine.quantity)} קוב</strong>.</p>
+    ${pricePerCube}
+    <p>כך שגודל המחסן יעלה עבורכם <strong>${formatIls(storageLine.amount)}</strong> בחודש. מחיר האחסון המדויק ייקבע בהתאם לגודל המחסן אשר נלקח בפועל במועד האחסנה.</p>
     <p>המחיר כולל ביטוח על פי תנאי החוזה המצורף:</p>
-    <ul><li>עד 14 קוב — ביטוח בגובה 5,000 ₪.</li><li>15 קוב ומעלה — ביטוח בגובה 10,000 ₪.</li></ul>
-    <p>ניתן להגדיל את הכיסוי הביטוחי בעלות של 2 ₪ לחודש לכל תוספת של 1,000 ₪ ביטוח.</p>
-    ${services}
-    <p>במידה ותרצו, נשמח לארח אתכם באחד המתחמים הקרובים לביתכם, כדי שתוכלו להתרשם מתנאי האחסון ומהסטנדרט שלנו.</p>
-    <p>לתיאום פגישה — שמשון 052-3420734 / אדיר 052-4446766 / משרד 03-9622247</p>
-    <p>המחירים אינם כוללים מע״מ. ההצעה תקפה למשך 30 יום.</p>
-    <p class="signoff">בתודה מראש,<br><strong>אחסון בטוח</strong></p>
-    <footer>אצ״ל 35, ראשון לציון · 03-9622247 · www.ichsunbatuach.co.il</footer>
+    <ul>
+      <li>למחסן בגודל עד 14 קוב ביטוח בגובה 5,000 ₪.</li>
+      <li>למחסן בגודל 15 קוב ומעלה ביטוח בגובה 10,000 ₪.</li>
+    </ul>
+    <p>בעת הצורך ניתן להגדיל את הכיסוי הביטוחי בעלות של 2 ₪ על כל תוספת של 1,000 ₪ ביטוח.</p>
+    ${optional}
+    <p>במידה ותרצו, נשמח לארח אתכם באחד המתחמים הקרובים לביתכם - על מנת שתגיעו להתרשם מתנאי האחסון והסטנדרט שלנו באחסון בטוח.</p>
+    <p>לתיאום פגישה - שמשון 052-3420734 / אדיר 052-4446766 / משרד 03-9622247</p>
+    <ul class="terms"><li>המחירים אינם כוללים מע״מ.</li><li>הצעה זו תקפה למשך 30 יום.</li></ul>
+    <p class="signoff">בתודה מראש<br><strong>אחסון בטוח</strong></p>
+    <footer><strong>אצ״ל 35 ראשון לצ״צ&nbsp;&nbsp;&nbsp; טלפון: 03-9622247&nbsp;&nbsp;&nbsp; פקס: 03-9622248</strong><br><strong>www.ichsunbatuach.co.il</strong></footer>
   `;
 }
 
-function asNumber(value: FormDataEntryValue | null): number {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
+function renderOptionalLine(line: StorageQuoteLine): string {
+  return `<li>${escapeHtml(line.description)}: <strong>${formatIls(line.amount)}</strong></li>`;
+}
+
+function normalizePhone(value: string | null): string {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (digits.startsWith("0")) return `972${digits.slice(1)}`;
+  return digits;
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? escapeHtml(value) : new Intl.DateTimeFormat("he-IL").format(date);
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("he-IL", { maximumFractionDigits: 2 }).format(value);
 }
 
 function escapeHtml(value: string): string {

@@ -1,27 +1,25 @@
-import type { StorageQuoteInput } from "./model";
+export interface StorageQuoteLine {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
 
-export interface StorageQuotePrefill {
+export interface StorageQuoteDocument {
   linkStatus: "active";
+  quote: {
+    displayName: string;
+    quoteNumber: string | null;
+    createdOn: string;
+    total: number;
+  };
   customer: {
     displayName: string;
     phone: string | null;
     email: string | null;
   };
   owner: { displayName: string | null };
-}
-
-export interface StorageQuoteSubmitResponse {
-  submissionId: string;
-  quoteId: string;
-  status: "created";
-  lineCount: number;
-  signatureRequired: false;
-}
-
-export interface StorageQuoteRequest {
-  token: string;
-  clientSubmissionId: string;
-  form: StorageQuoteInput;
+  lines: StorageQuoteLine[];
 }
 
 type Fetcher = typeof fetch;
@@ -53,7 +51,7 @@ async function requestJson<T>(fetcher: Fetcher, url: string, init: RequestInit, 
     }
     if (!response.ok) {
       const error = body as { code?: string; message?: string };
-      throw new ApiError(error.code ?? "REQUEST_FAILED", error.message ?? "הפעולה נכשלה", response.status, response.status >= 500);
+      throw new ApiError(error.code ?? "REQUEST_FAILED", error.message ?? "טעינת ההצעה נכשלה", response.status, response.status >= 500);
     }
     return body as T;
   } catch (error) {
@@ -64,46 +62,50 @@ async function requestJson<T>(fetcher: Fetcher, url: string, init: RequestInit, 
   }
 }
 
-function isPrefill(value: unknown): value is StorageQuotePrefill {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const result = value as Record<string, unknown>;
-  if (result.linkStatus !== "active" || typeof result.customer !== "object" || result.customer === null) return false;
-  const customer = result.customer as Record<string, unknown>;
-  const nullableString = (item: unknown) => item === null || typeof item === "string";
-  return typeof customer.displayName === "string" && nullableString(customer.phone) && nullableString(customer.email);
+function isNullableString(value: unknown): boolean {
+  return value === null || typeof value === "string";
 }
 
-function isSubmitResponse(value: unknown): value is StorageQuoteSubmitResponse {
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isDocument(value: unknown): value is StorageQuoteDocument {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const result = value as Record<string, unknown>;
-  return typeof result.submissionId === "string" && result.submissionId.length > 0
-    && typeof result.quoteId === "string" && result.quoteId.length > 0
-    && result.status === "created"
-    && typeof result.lineCount === "number" && Number.isInteger(result.lineCount) && result.lineCount >= 1
-    && result.signatureRequired === false;
+  if (result.linkStatus !== "active" || !Array.isArray(result.lines)) return false;
+  if (typeof result.quote !== "object" || result.quote === null || typeof result.customer !== "object" || result.customer === null) return false;
+  const quote = result.quote as Record<string, unknown>;
+  const customer = result.customer as Record<string, unknown>;
+  return typeof quote.displayName === "string"
+    && isNullableString(quote.quoteNumber)
+    && typeof quote.createdOn === "string"
+    && isFiniteNumber(quote.total)
+    && typeof customer.displayName === "string"
+    && isNullableString(customer.phone)
+    && isNullableString(customer.email)
+    && result.lines.length >= 1
+    && result.lines.every((line) => {
+      if (typeof line !== "object" || line === null || Array.isArray(line)) return false;
+      const item = line as Record<string, unknown>;
+      return typeof item.description === "string"
+        && isFiniteNumber(item.quantity)
+        && isFiniteNumber(item.unitPrice)
+        && isFiniteNumber(item.amount);
+    });
 }
 
 export function createStorageQuoteApi(options: { endpointUrl: string; fetcher?: Fetcher; timeoutMs?: number }) {
   const fetcher = options.fetcher ?? fetch;
   const timeoutMs = options.timeoutMs ?? 20_000;
   return {
-    async loadPrefill(token: string): Promise<StorageQuotePrefill> {
-      if (!TOKEN_PATTERN.test(token)) throw new ApiError("INVALID_TOKEN_FORMAT", "הקישור אינו תקין", 400);
+    async loadDocument(token: string): Promise<StorageQuoteDocument> {
+      if (!TOKEN_PATTERN.test(token)) throw new ApiError("INVALID_TOKEN_FORMAT", "הקישור להצעה אינו תקין", 400);
       const url = new URL(options.endpointUrl);
-      url.searchParams.set("mode", "prefill");
+      url.searchParams.set("mode", "document");
       url.searchParams.set("token", token);
       const response = await requestJson<unknown>(fetcher, url.toString(), { method: "GET" }, timeoutMs);
-      if (!isPrefill(response)) throw new ApiError("INVALID_RESPONSE", "נתוני הלקוח שהתקבלו אינם תקינים", 200, true);
-      return response;
-    },
-
-    async submitQuote(payload: StorageQuoteRequest, idempotencyKey: string): Promise<StorageQuoteSubmitResponse> {
-      const response = await requestJson<unknown>(fetcher, options.endpointUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify(payload),
-      }, timeoutMs);
-      if (!isSubmitResponse(response)) throw new ApiError("INVALID_RESPONSE", "השרת לא אישר שההצעה נוצרה במלואה", 200, true);
+      if (!isDocument(response)) throw new ApiError("INVALID_RESPONSE", "נתוני ההצעה שהתקבלו אינם תקינים", 200, true);
       return response;
     },
   };

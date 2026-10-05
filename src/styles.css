@@ -1,60 +1,43 @@
 :root {
   font-family: Assistant, Heebo, "Segoe UI", Arial, sans-serif;
-  color: #292522;
-  background: #f5f1eb;
-  accent-color: #e65a25;
+  color: #171717;
+  background: #eceae7;
 }
 
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; }
-.workspace { width: min(1380px, calc(100% - 28px)); margin: 24px auto; display: grid; grid-template-columns: minmax(360px, .82fr) minmax(520px, 1.18fr); gap: 22px; align-items: start; }
-.quote-form { display: grid; gap: 16px; }
-header, .card, .summary-card, .proposal { border-radius: 18px; background: #fff; box-shadow: 0 12px 34px rgb(50 39 31 / 9%); }
-header, .card { padding: 22px; }
-header { color: #fff; background: linear-gradient(135deg, #d7461f, #ef812d); }
-.eyebrow { margin: 0; font-weight: 900; opacity: .86; }
-h1 { margin: 5px 0 8px; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1; }
-header p:last-child, .card > p { margin-bottom: 0; }
-h2 { margin: 0 0 14px; }
-.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-label { display: grid; gap: 7px; font-weight: 800; }
-input, button { min-height: 48px; border: 1px solid #d3c7bd; border-radius: 12px; padding: 10px 12px; font: inherit; background: #fff; }
-input:focus { outline: 3px solid rgb(230 90 37 / 18%); border-color: #e65a25; }
-button:disabled { cursor: not-allowed; opacity: .56; }
-.rule-note { padding: 12px; border-radius: 10px; color: #7c3a1e; background: #fff2e9; }
-.summary-card { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 18px 22px; color: #fff; background: #373330; font-weight: 900; }
-.summary-card output { font-size: 1.7rem; }
-.submit-card { display: grid; gap: 10px; padding: 18px 22px; border-radius: 18px; background: #fff; box-shadow: 0 12px 34px rgb(50 39 31 / 9%); }
-.submit-card button { border: 0; color: #fff; background: #e65a25; font-weight: 900; cursor: pointer; }
-.submit-card p { margin: 0; color: #665b53; }
-.submit-card .error-message { color: #a52218; }
-.submit-card .success-message { color: #18733a; font-weight: 800; }
-.proposal { position: sticky; top: 16px; overflow: hidden; }
-.proposal-actions { padding: 12px; background: #373330; }
-.proposal-actions button { width: 100%; border: 0; color: #fff; background: #e65a25; font-weight: 900; cursor: pointer; }
-#proposal-preview { min-height: 840px; padding: 58px 62px; font-family: "Times New Roman", serif; font-size: 1.04rem; line-height: 1.65; }
-.proposal-meta { display: flex; justify-content: space-between; gap: 24px; }
-#proposal-preview h2 { margin: 38px 0 28px; text-align: center; text-decoration: underline; }
-#proposal-preview ul { padding-right: 24px; }
-.signoff { margin-top: 34px; text-align: left; }
-#proposal-preview footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #777; text-align: center; font-weight: 700; }
+.page-shell { width: min(100%, 1120px); margin: 0 auto; padding: 18px; }
+.toolbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding: 14px 18px; border-radius: 14px; color: #fff; background: #2f2f2f; box-shadow: 0 8px 25px rgb(0 0 0 / 15%); }
+.toolbar > div:first-child { display: grid; gap: 3px; }
+.toolbar span { color: #d8d8d8; font-size: .9rem; }
+.toolbar .error-text { color: #ffb8b8; }
+.toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button, .action-link { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; border: 0; border-radius: 9px; padding: 9px 14px; color: #fff; background: #d95725; font: inherit; font-weight: 800; text-decoration: none; cursor: pointer; }
+button:disabled, .action-link.disabled { pointer-events: none; opacity: .45; }
+.proposal { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 26mm 25mm 20mm; background: #fff; box-shadow: 0 12px 40px rgb(0 0 0 / 14%); font-family: "Times New Roman", David, serif; font-size: 15.5pt; line-height: 1.48; }
+.loading, .error-state { margin-top: 70mm; text-align: center; }
+.document-meta { display: flex; justify-content: space-between; gap: 30px; margin-bottom: 10mm; font-size: 16pt; }
+.quote-reference { margin: 0 0 3mm; color: #555; text-align: center; font-size: 11pt; }
+.proposal h1 { margin: 0 0 8mm; text-align: center; text-decoration: underline; font-size: 17pt; }
+.proposal p { margin: 0 0 5mm; text-align: right; }
+.proposal ul { margin: 0 0 5mm; padding-right: 8mm; }
+.optional-services { margin: 7mm 0; padding: 4mm 0; border-top: 1.5px solid #222; border-bottom: 1.5px solid #222; }
+.terms { list-style: "* "; }
+.signoff { margin-top: 8mm !important; text-align: left !important; }
+.proposal footer { margin-top: 8mm; padding-top: 3mm; border-top: 1.5px solid #111; text-align: center; line-height: 1.35; }
 
-@media (max-width: 960px) {
-  .workspace { grid-template-columns: 1fr; }
-  .proposal { position: static; }
-}
-
-@media (max-width: 620px) {
-  .workspace { width: min(100% - 16px, 1380px); margin: 8px auto; }
-  .grid { grid-template-columns: 1fr; }
-  #proposal-preview { padding: 32px 24px; min-height: 0; }
-  .proposal-meta { flex-direction: column; gap: 5px; }
+@media (max-width: 900px) {
+  .page-shell { padding: 8px; }
+  .toolbar { position: static; align-items: stretch; flex-direction: column; }
+  .toolbar-actions { display: grid; grid-template-columns: 1fr; }
+  .proposal { width: 100%; min-height: 0; padding: 32px 24px; font-size: 1rem; }
+  .document-meta { flex-direction: column; gap: 5px; font-size: 1rem; }
 }
 
 @media print {
-  :root { background: #fff; }
-  .quote-form, .proposal-actions { display: none !important; }
-  .workspace { display: block; width: auto; margin: 0; }
-  .proposal { position: static; box-shadow: none; }
-  #proposal-preview { min-height: 0; padding: 12mm 15mm; }
+  @page { size: A4; margin: 0; }
+  :root, body { background: #fff; }
+  .page-shell { width: auto; margin: 0; padding: 0; }
+  .toolbar { display: none !important; }
+  .proposal { width: 210mm; min-height: 297mm; margin: 0; padding: 22mm 24mm 18mm; box-shadow: none; font-size: 14.2pt; line-height: 1.42; }
 }

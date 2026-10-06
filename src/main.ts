@@ -77,10 +77,11 @@ function renderProposal(data: StorageQuoteDocument): string {
     ? `<p>נשמח לספק עבורכם את שירותינו לאחסנה במחיר של <strong>${formatIls(storageLine.unitPrice)}</strong> לקו״ב לחודש.</p>`
     : "";
   const optional = optionalLines.length
-    ? `<section class="optional-services"><p>כמו כן, ניתן להיעזר בשירותינו להובלת הציוד לאחסון או לעבודות סבלות:</p><ul>${optionalLines.map(renderOptionalLine).join("")}</ul></section>`
+    ? `<section class="optional-services"><p>כמו כן, ניתן להיעזר בשירותינו להובלת הציוד לאחסון ו/או עבודת סבלות לסידור הציוד במחסנים:</p><ul>${optionalLines.map(renderOptionalLine).join("")}</ul></section>`
     : "";
 
   return `
+    <div class="document-logo"><img src="./logo.png" alt="אחסון בטוח - מחסנים להשכרה"></div>
     <header class="document-meta">
       <span><strong>לכבוד:</strong> ${escapeHtml(data.customer.displayName)}</span>
       <span><strong>תאריך:</strong> ${date}</span>
@@ -88,12 +89,12 @@ function renderProposal(data: StorageQuoteDocument): string {
     <p class="quote-reference">${quoteLabel}</p>
     <h1>הנדון: הצעת מחיר לאחסנה</h1>
     <p>אנחנו באחסון בטוח עוסקים למעלה מ־40 שנה בהשכרת מחסנים פרטיים בכל גודל ולכל תקופה על פי דרישת הלקוח בתוך מבנה בטון מלא, עם גג בטון, במתחם מאוורר, נקי, מבוטח ומאובטח - עם שמירה, מצלמות ומערכת אזעקה מתקדמת וייחודית.</p>
-    <p>מפתח התא האישי נמצא בידי הלקוח שלו ואפשרות לגישה 24/7 למתחם כל שעה וכל יום באמצעות בקרות כניסה ויציאה חכמות.</p>
+    <p>מפתח ביד הלקוח לתא האישי שלו ואפשרות לגישה 24/7 למתחם כל שעה וכל יום באמצעות בקרות כניסה ויציאה חכמות.</p>
     <p>מחיר השכירות החודשי נקבע על פי גודל המחסן ביחידות קוב.</p>
     <p>ברשותנו מחסנים בכל הגדלים, החל מ־1 קוב ואילך, עד למחסנים ענקיים של 100 קוב.</p>
     <p>על פי דרישתכם להערכתנו תזדקקו למחסן בגודל של <strong>${formatNumber(storageLine.quantity)} קוב</strong>.</p>
     ${pricePerCube}
-    <p>כך שגודל המחסן יעלה עבורכם <strong>${formatIls(storageLine.amount)}</strong> בחודש. מחיר האחסון המדויק ייקבע בהתאם לגודל המחסן אשר נלקח בפועל במועד האחסנה.</p>
+    <p>כך שמחסן בגודל <strong>${formatNumber(storageLine.quantity)} קוב</strong> יעלה עבורכם <strong>${formatIls(storageLine.amount)}</strong> בחודש. מחיר האחסון המדויק ייקבע בהתאם לגודל המחסן אשר נלקח בפועל במועד האחסנה.</p>
     <p>המחיר כולל ביטוח על פי תנאי החוזה המצורף:</p>
     <ul>
       <li>למחסן בגודל עד 14 קוב ביטוח בגובה 5,000 ₪.</li>
@@ -105,7 +106,7 @@ function renderProposal(data: StorageQuoteDocument): string {
     <p>לתיאום פגישה - שמשון 052-3420734 / אדיר 052-4446766 / משרד 03-9622247</p>
     <ul class="terms"><li>המחירים אינם כוללים מע״מ.</li><li>הצעה זו תקפה למשך 30 יום.</li></ul>
     <p class="signoff">בתודה מראש<br><strong>אחסון בטוח</strong></p>
-    <footer><strong>אצ״ל 35 ראשון לצ״צ&nbsp;&nbsp;&nbsp; טלפון: 03-9622247&nbsp;&nbsp;&nbsp; פקס: 03-9622248</strong><br><strong>www.ichsunbatuach.co.il</strong></footer>
+    <footer><strong>אצ"ל 35 ראשל"צ&nbsp;&nbsp;&nbsp; טלפון: 03-9622247&nbsp;&nbsp;&nbsp; פקס: 03-9622248</strong><br><strong>www.ichsunbatuach.co.il</strong></footer>
   `;
 }
 

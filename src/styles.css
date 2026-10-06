@@ -16,6 +16,8 @@ button, .action-link { display: inline-flex; min-height: 42px; align-items: cent
 button:disabled, .action-link.disabled { pointer-events: none; opacity: .45; }
 .proposal { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 26mm 25mm 20mm; background: #fff; box-shadow: 0 12px 40px rgb(0 0 0 / 14%); font-family: "Times New Roman", David, serif; font-size: 15.5pt; line-height: 1.48; }
 .loading, .error-state { margin-top: 70mm; text-align: center; }
+.document-logo { margin: -12mm auto 8mm; text-align: center; }
+.document-logo img { display: block; width: min(100%, 112mm); height: auto; margin: 0 auto; }
 .document-meta { display: flex; justify-content: space-between; gap: 30px; margin-bottom: 10mm; font-size: 16pt; }
 .quote-reference { margin: 0 0 3mm; color: #555; text-align: center; font-size: 11pt; }
 .proposal h1 { margin: 0 0 8mm; text-align: center; text-decoration: underline; font-size: 17pt; }
@@ -31,6 +33,8 @@ button:disabled, .action-link.disabled { pointer-events: none; opacity: .45; }
   .toolbar { position: static; align-items: stretch; flex-direction: column; }
   .toolbar-actions { display: grid; grid-template-columns: 1fr; }
   .proposal { width: 100%; min-height: 0; padding: 32px 24px; font-size: 1rem; }
+  .document-logo { margin: -12px auto 24px; }
+  .document-logo img { width: min(100%, 360px); }
   .document-meta { flex-direction: column; gap: 5px; font-size: 1rem; }
 }
 
@@ -39,5 +43,6 @@ button:disabled, .action-link.disabled { pointer-events: none; opacity: .45; }
   :root, body { background: #fff; }
   .page-shell { width: auto; margin: 0; padding: 0; }
   .toolbar { display: none !important; }
-  .proposal { width: 210mm; min-height: 297mm; margin: 0; padding: 22mm 24mm 18mm; box-shadow: none; font-size: 14.2pt; line-height: 1.42; }
+  .proposal { width: 210mm; min-height: 297mm; margin: 0; padding: 18mm 24mm 18mm; box-shadow: none; font-size: 14.2pt; line-height: 1.42; }
+  .document-logo { margin: -8mm auto 6mm; }
 }
